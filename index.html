@@ -1,0 +1,355 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#141416">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="مکعب">
+<link rel="apple-touch-icon" href="icon-192.png">
+<title>مکعب ساعت، تقویم و هوا</title>
+<link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;700&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#f4f1ea;--fg:#1d1d1f;--mute:#6b6b70;--sec:#d13b2e;--tile:#fffdf8;--tick:#9a9a9f;--uv:#d98c00;--hum:#1f78d1;--s:min(48vmin,460px);
+box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#141416;--fg:#ececef;--mute:#98989f;--sec:#ff6a5c;--tile:#1d1d21;--tick:#5d5d64;--uv:#ffc247;--hum:#5aaaff}}
+:root[data-theme="dark"]{--bg:#141416;--fg:#ececef;--mute:#98989f;--sec:#ff6a5c;--tile:#1d1d21;--tick:#5d5d64;--uv:#ffc247;--hum:#5aaaff}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--fg);font-family:Vazirmatn,Tahoma,sans-serif;overflow:hidden}
+body{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4vmin}
+#stage{width:var(--s);height:var(--s);perspective:1600px;touch-action:none;cursor:grab;user-select:none;-webkit-user-select:none}
+#stage:active{cursor:grabbing}
+#cube{width:100%;height:100%;position:relative;transform-style:preserve-3d;transform:rotateX(-32deg) rotateY(-40deg)}
+.face{position:absolute;inset:0;background:var(--tile);box-shadow:inset 0 0 0 2px var(--fg);box-sizing:border-box}
+.face svg{width:100%;height:100%;display:block;direction:ltr;pointer-events:none}
+.f1{transform:translateZ(calc(var(--s)/2))}
+.f2{transform:rotateY(90deg) translateZ(calc(var(--s)/2))}
+.f3{transform:rotateX(90deg) translateZ(calc(var(--s)/2))}
+.f4{transform:rotateY(180deg) translateZ(calc(var(--s)/2))}
+.f5{transform:rotateY(-90deg) translateZ(calc(var(--s)/2))}
+.f6{transform:rotateX(-90deg) translateZ(calc(var(--s)/2))}
+.f4,.f5,.f6{filter:brightness(.92)}
+.frame{fill:var(--tile);stroke:var(--fg);stroke-width:5}
+.arc{fill:none;stroke:var(--fg);stroke-width:2.5}
+.hand{stroke-linecap:round}
+.tip{stroke:var(--tile);stroke-width:2}
+/* clock */
+#clk .tk{stroke:var(--tick);stroke-width:1.5}
+#clk .lbl{font-size:15px;fill:var(--mute);text-anchor:middle;dominant-baseline:central}
+/* calendar */
+#cal .tk{stroke:var(--tick);stroke-width:1.2}
+#cal .lbl{font-size:9px;fill:var(--fg);text-anchor:middle;dominant-baseline:central;transition:font-size .3s}
+#cal .wd{direction:ltr;unicode-bidi:bidi-override}
+#cal .lbl.off{fill:var(--tick);opacity:.55}
+#cal .tk.off{opacity:.25}
+#cal .lbl.act{font-size:12px;font-weight:700;fill:var(--fg)}
+/* weather */
+#wx .tk{stroke:var(--tick);stroke-width:1.5}
+#wx .lbl{font-size:11px;fill:var(--mute);text-anchor:middle;dominant-baseline:central}
+#wx .lbl.r{fill:var(--sec)}#wx .lbl.uv{fill:var(--uv)}#wx .lbl.hu{fill:var(--hum)}#wx .arc.uv{stroke:var(--uv)}#wx .arc.hu{stroke:var(--hum)}
+#wx .t,#wx .m{unicode-bidi:plaintext}
+#wx .t{dominant-baseline:central;font-weight:700;fill:var(--fg)}
+#wx .m{font-weight:400;fill:var(--mute)}
+/* digital faces */
+.dg{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:calc(var(--s)*.025);text-align:center;color:var(--fg);direction:rtl;font-variant-numeric:tabular-nums}
+.dg::before{content:"";position:absolute;inset:1.5%;border:calc(var(--s)*.0125) solid var(--fg);border-radius:11%;pointer-events:none}
+.dg .big{font-size:calc(var(--s)*.17);font-weight:700;line-height:1;direction:ltr}
+.dg .sec{color:var(--sec)}.dg .mut{color:var(--mute)}
+.dg .md{font-size:calc(var(--s)*.07);font-weight:700}.dg .sm{font-size:calc(var(--s)*.042)}
+.dg .grid{display:grid;grid-template-columns:1fr 1fr;gap:calc(var(--s)*.015) calc(var(--s)*.05);font-size:calc(var(--s)*.042);text-align:right}
+.dg .grid b{font-weight:700}
+</style>
+</head>
+<body>
+<div id="stage"><div id="cube">
+<div data-t="0,0" class="face f1"><svg viewBox="0 0 400 400" id="clk" role="img" aria-label="ساعت"><g id="tile"></g></svg></div>
+<div data-t="0,-90" class="face f2"><svg viewBox="0 0 400 400" id="cal" role="img" aria-label="تقویم"></svg></div>
+<div data-t="-90,0" class="face f3"><svg viewBox="0 0 400 400" id="wx" role="img" aria-label="هواشناسی"><g id="g"></g></svg></div>
+<div data-t="0,180" class="face f4 dg" id="dclk"><div class="big" id="dt">--:--</div><div class="big sec" id="ds" style="font-size:calc(var(--s)*.1)">--</div></div>
+<div data-t="0,90" class="face f5 dg" id="dcal"><div class="md mut" id="cw"></div><div class="big" id="cj" style="font-size:calc(var(--s)*.12);direction:rtl"></div><div class="sm mut" id="cn"></div><div class="md sec" id="cg" style="direction:ltr;font-size:calc(var(--s)*.075)"></div><div class="md" id="ct" style="direction:ltr;font-size:calc(var(--s)*.055)"></div><div class="sm mut" id="cm"></div></div>
+<div data-t="90,0" class="face f6 dg" id="dwx"><div class="sm mut" id="wc"></div><div class="big" id="wt">--</div><div class="sm sec" id="wf"></div><div class="grid" id="wg"></div></div>
+</div></div>
+<script>
+/* ===== ساعت ===== */
+(function(){
+const NS="http://www.w3.org/2000/svg",PX=33,PY=367;
+const R={s:322,m:235,h:148};
+const fa=n=>Number(n).toLocaleString("fa-IR",{useGrouping:false});
+const tile=document.getElementById("tile");
+function el(n,a,p){const e=document.createElementNS(NS,n);for(const k in a)e.setAttribute(k,a[k]);(p||tile).appendChild(e);return e}
+const pt=(r,t)=>[PX+r*Math.sin(t*Math.PI/180),PY-r*Math.cos(t*Math.PI/180)];
+el("rect",{x:6,y:6,width:388,height:388,rx:44,class:"frame"});
+const labelG=el("g",{}),tickG=el("g",{});
+for(const k in R){const r=R[k];el("path",{d:`M ${PX} ${PY-r} A ${r} ${r} 0 0 1 ${PX+r} ${PY}`,class:"arc"})}
+const hands={
+ h:el("line",{class:"hand",stroke:"var(--mute)","stroke-width":6}),
+ m:el("line",{class:"hand",stroke:"var(--fg)","stroke-width":4}),
+ s:el("line",{class:"hand",stroke:"var(--sec)","stroke-width":2.5})};
+const tips={s:el("circle",{r:6,fill:"var(--sec)",class:"tip"}),m:el("circle",{r:6,fill:"var(--fg)",class:"tip"}),h:el("circle",{r:7,fill:"var(--mute)",class:"tip"})};
+el("circle",{cx:PX,cy:PY,r:10,fill:"var(--tile)",stroke:"var(--fg)","stroke-width":3.5});
+el("circle",{cx:PX,cy:PY,r:3.5,fill:"var(--sec)"});
+const cfg={s:{n:15,step:5},m:{n:15,step:5},h:{n:6,step:1}};
+const texts={};
+for(const k in cfg){
+  const {n,step}=cfg[k],r=R[k];
+  for(let i=0;i<=n;i++){const t=90*i/n,len=(i%step===0)?10:5;
+    const a=pt(r,t),b=pt(r-len,t);
+    el("line",{x1:a[0],y1:a[1],x2:b[0],y2:b[1],class:"tk"},tickG)}
+  texts[k]=[];
+  for(let i=0;i<=n;i+=step){const t=90*i/n,p=pt(r+15,t);
+    texts[k].push({i,x:p[0],y:p[1],e:el("text",{class:"lbl",x:p[0],y:p[1]},labelG)})}
+}
+const sets={s:60,m:60,h:24};
+function setLabels(k,q){
+  const per=k==="h"?6:15;
+  texts[k].forEach(o=>{let v=q*per+o.i;if(v>=sets[k]&&k!=="h")v-=sets[k];o.e.textContent=fa(v)});
+}
+const qs={s:-1,m:-1,h:-1},disp={s:0,m:0,h:0};
+let rot=null,n=0,lastQ=null;
+const ease=(a,b,f)=>a+(b-a)*f;
+function frame(){
+  const d=new Date(),ms=d.getMilliseconds();
+  const s=d.getSeconds()+ms/1000,m=d.getMinutes()+s/60,h=d.getHours()+m/60;
+  const val={s,m,h},per={s:15,m:15,h:6};
+  for(const k of ["s","m","h"]){
+    const q=Math.floor(val[k]/per[k]),loc=(val[k]%per[k])/per[k]*90;
+    if(q!==qs[k]){qs[k]=q;setLabels(k,q)}
+    if(Math.abs(disp[k]-loc)>1.5)disp[k]=ease(disp[k],loc,.1);else disp[k]=loc;
+    const p=pt(R[k],disp[k]),H=hands[k];
+    H.setAttribute("x1",PX);H.setAttribute("y1",PY);H.setAttribute("x2",p[0]);H.setAttribute("y2",p[1]);
+    tips[k].setAttribute("cx",p[0]);tips[k].setAttribute("cy",p[1]);
+  }
+  const q=qs.h;
+  if(rot===null){rot=90*q;n=q;lastQ=q}
+  if(q!==lastQ){n+=(q-lastQ+4)%4;lastQ=q}
+  rot=Math.abs(rot-90*n)>.05?ease(rot,90*n,.06):90*n;
+  tile.setAttribute("transform",`rotate(${rot} 200 200)`);
+  for(const k in texts)texts[k].forEach(o=>o.e.setAttribute("transform",`rotate(${-rot} ${o.x} ${o.y})`));
+  requestAnimationFrame(frame);
+}
+frame();
+})();
+
+/* ===== تقویم ===== */
+(function(){
+const NS="http://www.w3.org/2000/svg",svg=document.getElementById("cal");
+const el=(n,a,p)=>{const e=document.createElementNS(NS,n);for(const k in a)e.setAttribute(k,a[k]);(p||svg).appendChild(e);return e};
+const fa=n=>Number(n).toLocaleString("fa-IR",{useGrouping:false});
+const PA=[33,367],PB=[367,33];
+const pos=(D,r,a)=>{const t=a*Math.PI/180;return D==="A"?[PA[0]+r*Math.cos(t),PA[1]-r*Math.sin(t)]:[PB[0]-r*Math.sin(t),PB[1]+r*Math.cos(t)]};
+const WD=["ش","ش۱","ش۲","ش۳","ش۴","ش۵","ج"];
+const S=[
+ {id:"wd",D:"A",r:100,n:7, lab:i=>WD[i],col:"var(--mute)",w:4},
+ {id:"jd",D:"A",r:165,n:31,lab:i=>fa(i+1),col:"var(--fg)",w:4},
+ {id:"gd",D:"A",r:230,n:31,lab:i=>String(i+1),col:"var(--sec)",w:4},
+ {id:"jm",D:"B",r:120,n:12,lab:i=>fa(i+1),col:"var(--fg)",w:4},
+ {id:"gm",D:"B",r:185,n:12,lab:i=>String(i+1),col:"var(--sec)",w:4}];
+el("rect",{x:6,y:6,width:388,height:388,rx:44,class:"frame"});
+for(const s of S){
+  const P=s.D==="A"?PA:PB,r=s.r;
+  el("path",{d:s.D==="A"?`M ${P[0]+r} ${P[1]} A ${r} ${r} 0 0 0 ${P[0]} ${P[1]-r}`:`M ${P[0]} ${P[1]+r} A ${r} ${r} 0 0 1 ${P[0]-r} ${P[1]}`,class:"arc"});
+  s.labels=[];s.ticks=[];
+  for(let i=0;i<s.n;i++){
+    const a=90*i/(s.n-1),p1=pos(s.D,r,a),p2=pos(s.D,r-6,a),pl=pos(s.D,r+13,a);
+    s.ticks.push(el("line",{x1:p1[0],y1:p1[1],x2:p2[0],y2:p2[1],class:"tk"}));
+    const t=el("text",{x:pl[0],y:pl[1],class:s.id==="wd"?"lbl wd":"lbl"});t.textContent=s.lab(i);s.labels.push(t);
+  }
+}
+for(const s of S){
+  s.hand=el("line",{class:"hand",stroke:s.col,"stroke-width":s.w});
+  s.tip=el("circle",{r:6,fill:s.col,class:"tip"});
+  s.disp=null;s.cur=-1;
+}
+for(const P of [PA,PB]){
+  el("circle",{cx:P[0],cy:P[1],r:12,fill:"var(--tile)",stroke:"var(--fg)","stroke-width":3.5});
+  el("circle",{cx:P[0],cy:P[1],r:3.5,fill:"var(--sec)"});
+}
+const fmt=new Intl.DateTimeFormat("en-US-u-ca-persian-nu-latn",{year:"numeric",month:"numeric",day:"numeric"});
+function dates(){
+  const d=new Date(),P=fmt.formatToParts(d),g=t=>+P.find(x=>x.type===t).value;
+  return {wd:(d.getDay()+1)%7+1,jd:g("day"),gd:d.getDate(),jm:g("month"),gm:d.getMonth()+1};
+}
+function jLen(){
+  const n=new Date();let last=0,m0=null;
+  for(let k=0;k<32;k++){
+    const d=new Date(n.getFullYear(),n.getMonth(),n.getDate()+k,12),P=fmt.formatToParts(d),g=t=>+P.find(x=>x.type===t).value,m=g("month");
+    if(m0===null)m0=m;if(m!==m0)break;last=g("day");
+  }
+  return last;
+}
+function setLens(){
+  const n=new Date(),L={jd:jLen(),gd:new Date(n.getFullYear(),n.getMonth()+1,0).getDate()};
+  for(const s of S){if(!L[s.id])continue;
+    s.labels.forEach((t,i)=>t.classList.toggle("off",i>=L[s.id]));
+    s.ticks.forEach((t,i)=>t.classList.toggle("off",i>=L[s.id]));}
+}
+let lastKey="";
+function frame(){
+  const D=dates(),key=D.jm+"/"+D.jd+"/"+D.gm+"/"+D.gd;
+  if(key!==lastKey){lastKey=key;setLens();}
+  for(const s of S){
+    const idx=D[s.id]-1,t=90*idx/(s.n-1);
+    if(s.cur!==idx){
+      if(s.cur>=0)s.labels[s.cur].classList.remove("act");
+      s.labels[idx].classList.add("act");s.cur=idx;
+      if(s.disp===null)s.disp=t;
+    }
+    s.disp=Math.abs(s.disp-t)>.05?s.disp+(t-s.disp)*.07:t;
+    const P=s.D==="A"?PA:PB,p=pos(s.D,s.r,s.disp);
+    s.hand.setAttribute("x1",P[0]);s.hand.setAttribute("y1",P[1]);s.hand.setAttribute("x2",p[0]);s.hand.setAttribute("y2",p[1]);
+    s.tip.setAttribute("cx",p[0]);s.tip.setAttribute("cy",p[1]);
+  }
+  requestAnimationFrame(frame);
+}
+frame();
+})();
+
+/* ===== هواشناسی ===== */
+(function(){
+const Q=new URLSearchParams(location.search);
+const LAT=+(Q.get("lat")||41.03), LON=+(Q.get("lon")||28.67), CITY=Q.get("name")||"اسنیورت، استانبول";
+const PX=34,PY=366,RB=175,RS=95,NS="http://www.w3.org/2000/svg";
+const fa=(n,d=0)=>Number(n).toLocaleString("fa-IR",{useGrouping:false,maximumFractionDigits:d});
+const g=document.getElementById("g");
+function el(n,a,p,tx){const e=document.createElementNS(NS,n);for(const k in a)e.setAttribute(k,a[k]);if(tx!=null)e.textContent=tx;(p||g).appendChild(e);return e}
+const P=(c,r,t)=>{const dx=r*Math.sin(t*Math.PI/180),dy=r*Math.cos(t*Math.PI/180);return c==="bl"?[PX+dx,PY-dy]:[400-PX-dx,400-PY+dy]};
+const piv=c=>c==="bl"?[PX,PY]:[400-PX,400-PY];
+el("rect",{x:6,y:6,width:388,height:388,rx:44,class:"frame"});
+const hands=[];
+function gauge(c,r,lo,hi,labels,opt={}){
+  const a=P(c,r,0),b=P(c,r,90);
+  el("path",{d:`M ${a[0]} ${a[1]} A ${r} ${r} 0 0 1 ${b[0]} ${b[1]}`,class:"arc"+(opt.cls?" "+opt.cls:"")});
+  const pos=v=>90*Math.min(1,Math.max(0,(v-lo)/(hi-lo)));
+  labels.forEach(v=>{const t=pos(v),p1=P(c,r,t),p2=P(c,r-8,t),p3=P(c,opt.in?r-18:r+14,t);
+    el("line",{x1:p1[0],y1:p1[1],x2:p2[0],y2:p2[1],class:"tk"});
+    el("text",{x:p3[0],y:p3[1],class:"lbl"+(opt.in?" r":"")+(opt.cls?" "+opt.cls:"")},null,opt.fmt?opt.fmt(v):fa(v))});
+  return {c,r,pos};
+}
+function hand(G,color,w,tipR){
+  const [x0,y0]=piv(G.c),l=el("line",{class:"hand",stroke:color,"stroke-width":w,x1:x0,y1:y0});
+  const tp=el("circle",{r:tipR,fill:color,class:"tip"});
+  const h={G,l,tp,cur:0,tg:0};hands.push(h);return h;
+}
+const aqi=gauge("tr",RB,0,300,[0,100,200,300]);
+const eu=gauge("tr",RB,0,100,[20,40,60,80,100],{in:1});
+const uv=gauge("tr",RS,0,12,[0,3,6,9,12],{cls:"uv"});
+const hu=gauge("bl",RS,0,100,[0,50,100],{cls:"hu"});
+let tempG=null;
+[["tr"],["bl"]].forEach(([c])=>{const [x,y]=piv(c);el("circle",{cx:x,cy:y,r:9,fill:"var(--tile)",stroke:"var(--fg)","stroke-width":3.5});el("circle",{cx:x,cy:y,r:3,fill:"var(--sec)"})});
+const hUS=hand(aqi,"var(--fg)",3.5,5),hEU=hand(eu,"var(--sec)",2.5,5),hUV=hand(uv,"var(--uv)",2.5,4.5),hHU=hand(hu,"var(--hum)",2.5,4.5);
+let hCur,hFeel,dewMark;
+const T=(x,y,s,cls)=>el("text",{x,y,class:cls,"font-size":s,"text-anchor":"start"},null,"");
+const cityEl=T(26,44,13,"m");cityEl.textContent=CITY;
+function LG(x,y,col,w,r,label,tick){
+  if(tick)el("line",{x1:x+8,y1:y-5,x2:x+8,y2:y+5,stroke:col,"stroke-width":3,"stroke-linecap":"round"});
+  else{el("line",{x1:x,y1:y,x2:x+16,y2:y,stroke:col,"stroke-width":w*.75,"stroke-linecap":"round"});el("circle",{cx:x+16,cy:y,r:r*.75,fill:col});}
+  T(x+28,y,11,"t").textContent=label;
+}
+LG(26,78,"var(--fg)",3.5,5,"کیفیت هوا (آمریکا)");
+LG(26,98,"var(--sec)",2.5,5,"کیفیت هوا (اروپا)");
+LG(26,118,"var(--uv)",2.5,4.5,"UV");
+LG(250,306,"var(--fg)",3.5,5,"دمای فعلی");
+LG(250,326,"var(--sec)",2.5,5,"دمای احساسی");
+LG(250,346,"var(--sec)",0,0,"نقطه شبنم",1);
+LG(250,366,"var(--hum)",2.5,4.5,"رطوبت");
+const f=(u)=>fetch(u).then(r=>{if(!r.ok)throw 0;return r.json()});
+async function where(){
+  if(Q.get("lat"))return{lat:LAT,lon:LON,name:CITY};
+  const nm=async(la,lo)=>{try{const r=await f(`https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${la}&longitude=${lo}&localityLanguage=fa`);return [r.locality||r.city,r.principalSubdivision].filter(Boolean).join("، ")}catch(e){return ""}};
+  let L=null;
+  try{const p=await new Promise((ok,no)=>navigator.geolocation.getCurrentPosition(ok,no,{timeout:8000,maximumAge:600000}));
+    L={lat:p.coords.latitude,lon:p.coords.longitude}}catch(e){}
+  if(!L){try{const r=await f("https://ipwho.is/");if(r.success!==false&&r.latitude!=null)L={lat:r.latitude,lon:r.longitude,name:r.city}}catch(e){}}
+  if(L){L.name=(await nm(L.lat,L.lon))||L.name||"موقعیت فعلی";try{localStorage.setItem("qloc",JSON.stringify(L))}catch(e){}return L}
+  try{const S=JSON.parse(localStorage.getItem("qloc"));if(S)return S}catch(e){}
+  return{lat:LAT,lon:LON,name:CITY};
+}
+async function load(){
+  let d;
+  const L=await where();cityEl.textContent=L.name;
+  try{
+    const [w,a]=await Promise.all([
+      f(`https://api.open-meteo.com/v1/forecast?latitude=${L.lat}&longitude=${L.lon}&current=temperature_2m,apparent_temperature,relative_humidity_2m,dew_point_2m&daily=temperature_2m_max,temperature_2m_min&timezone=auto&forecast_days=1`),
+      f(`https://air-quality-api.open-meteo.com/v1/air-quality?latitude=${L.lat}&longitude=${L.lon}&current=us_aqi,european_aqi,uv_index&timezone=auto`)]);
+    d={t:w.current.temperature_2m,fl:w.current.apparent_temperature,hu:w.current.relative_humidity_2m,dew:w.current.dew_point_2m,
+       mn:w.daily.temperature_2m_min[0],mx:w.daily.temperature_2m_max[0],us:a.current.us_aqi,eu:a.current.european_aqi,uv:a.current.uv_index,ts:Date.now()};
+    try{localStorage.setItem("qw",JSON.stringify(d))}catch(e){}
+  }catch(e){try{d=JSON.parse(localStorage.getItem("qw"))}catch(e2){}}
+  if(d){show(d);window.dispatchEvent(new CustomEvent("wx",{detail:{d,name:L.name}}))}
+}
+function show(d){
+  const vals=[d.mn,d.mx,d.t,d.fl,d.dew],lo=Math.floor(Math.min(...vals))-1,hi=Math.ceil(Math.max(...vals))+1;
+  if(!tempG){tempG=gauge("bl",RB,lo,hi,[lo,Math.round((lo+hi)/2),hi],{fmt:v=>fa(v)+"°"});
+    hCur=hand(tempG,"var(--fg)",3.5,5);hFeel=hand(tempG,"var(--sec)",2.5,5);
+    dewMark=el("line",{stroke:"var(--sec)","stroke-width":4,"stroke-linecap":"round"});}
+  const pos=v=>90*Math.min(1,Math.max(0,(v-lo)/(hi-lo)));
+  hCur.tg=pos(d.t);hFeel.tg=pos(d.fl);
+  const a=P("bl",RB-9,pos(d.dew)),b=P("bl",RB+9,pos(d.dew));
+  dewMark.setAttribute("x1",a[0]);dewMark.setAttribute("y1",a[1]);dewMark.setAttribute("x2",b[0]);dewMark.setAttribute("y2",b[1]);
+  hUS.tg=90*Math.min(1,d.us/300);hEU.tg=90*Math.min(1,d.eu/100);hUV.tg=90*Math.min(1,d.uv/12);hHU.tg=90*d.hu/100;
+}
+(function loop(){
+  hands.forEach(h=>{h.cur+=(h.tg-h.cur)*.07;if(Math.abs(h.tg-h.cur)<.05)h.cur=h.tg;
+    const p=P(h.G.c,h.G.r,h.cur);h.l.setAttribute("x2",p[0]);h.l.setAttribute("y2",p[1]);h.tp.setAttribute("cx",p[0]);h.tp.setAttribute("cy",p[1])});
+  requestAnimationFrame(loop)})();
+load();setInterval(load,15*60*1000);
+})();
+
+/* ===== مکعب ===== */
+(function(){
+const stage=document.getElementById("stage"),cube=document.getElementById("cube");
+let rx=-32,ry=-40,d=null,face=null,moved=0;
+const ap=()=>cube.style.transform=`rotateX(${rx}deg) rotateY(${ry}deg)`;
+const near=(c,b)=>b+360*Math.round((c-b)/360);
+stage.addEventListener("pointerdown",e=>{
+  face=e.target.closest(".face");d={x:e.clientX,y:e.clientY};moved=0;
+  cube.style.transition="none";try{stage.setPointerCapture(e.pointerId)}catch(_){}
+});
+stage.addEventListener("pointermove",e=>{
+  if(!d)return;const dx=e.clientX-d.x,dy=e.clientY-d.y;moved+=Math.abs(dx)+Math.abs(dy);
+  ry+=dx*.45;rx-=dy*.45;d={x:e.clientX,y:e.clientY};ap();
+});
+stage.addEventListener("pointerup",()=>{
+  if(d&&moved<8&&face){ // کلیک ساده: همان وجه بیاید جلو
+    const [tx,ty]=face.dataset.t.split(",").map(Number);
+    cube.style.transition="transform .9s cubic-bezier(.3,.7,.2,1)";
+    rx=near(rx,tx);ry=near(ry,ty);ap();
+  }
+  d=null;
+});
+stage.addEventListener("pointercancel",()=>{d=null});
+})();
+
+/* ===== وجه‌های دیجیتال ===== */
+(function(){
+const $=i=>document.getElementById(i),fa=(n,d=0)=>Number(n).toLocaleString("fa-IR",{useGrouping:false,maximumFractionDigits:d,minimumFractionDigits:d});
+const pw=new Intl.DateTimeFormat("fa-IR-u-ca-persian",{weekday:"long"}),
+ pd=new Intl.DateTimeFormat("fa-IR-u-ca-persian",{day:"numeric",month:"long"}),
+ gd=new Intl.DateTimeFormat("en-GB",{day:"numeric",month:"long"}),
+ tr=new Intl.DateTimeFormat("tr-TR",{day:"numeric",month:"long",weekday:"long"}),
+ pm=new Intl.DateTimeFormat("en-US-u-ca-persian-nu-latn",{month:"numeric"}),
+ gs=new Intl.DateTimeFormat("fa-IR",{day:"numeric",month:"long",year:"numeric"});
+function tick(){
+  const d=new Date(),z=n=>String(n).padStart(2,"0"),p=s=>s.replace(/\d/g,c=>"۰۱۲۳۴۵۶۷۸۹"[c]);
+  $("dt").textContent=p(z(d.getHours())+":"+z(d.getMinutes()));
+  $("ds").textContent=p(z(d.getSeconds()));
+  $("cw").textContent=pw.format(d);$("cj").textContent=pd.format(d);$("cg").textContent=gd.format(d);$("ct").textContent=tr.format(d);
+  $("cn").textContent="ماه شمسی: "+fa(pm.format(d));$("cm").textContent="Ay: "+(d.getMonth()+1);
+}
+tick();setInterval(tick,250);
+const aq=v=>v<=50?"خوب":v<=100?"متوسط":v<=150?"ناسالم برای حساس‌ها":v<=200?"ناسالم":v<=300?"بسیار ناسالم":"خطرناک";
+window.addEventListener("wx",e=>{
+  const d=e.detail.d;
+  $("wc").textContent=e.detail.name;
+  $("wt").textContent=fa(d.t,1)+"°";
+  $("wf").textContent="احساس‌شده "+fa(d.fl,1)+"° · امروز "+fa(d.mn,0)+"° تا "+fa(d.mx,0)+"°";
+  $("wg").innerHTML=[["رطوبت",fa(d.hu)+"٪"],["نقطه شبنم",fa(d.dew,1)+"°"],["UV",fa(d.uv,1)],["AQI آمریکا",fa(d.us)+" · "+aq(d.us)],["AQI اروپا",fa(d.eu)]].map(r=>`<span class="mut">${r[0]}</span><b>${r[1]}</b>`).join("");
+});
+})();
+
+if("serviceWorker" in navigator)navigator.serviceWorker.register("sw.js").catch(()=>{});
+</script>
+</body>
+</html>
